@@ -8,7 +8,7 @@ import pytz
 
 # ------------------ SETTINGS ------------------
 APP_TITLE = "Die Casting Production Downstream Data"
-SHEET_NAME = "Casting_downstream"
+SHEET_NAME = "FlowApp_Data"
 DOWNSTREAM_CONFIG_SHEET = "Downstream_config"
 DOWNSTREAM_HISTORY_SHEET = "Downstream_history"
 TIME_FORMAT_DATE = "%Y-%b-%d"  # 2025-AUG-01 format
@@ -163,9 +163,61 @@ def downstream_data_entry(logged_user):
     entry = {"User": logged_user, "Date": current_date, "Time": current_time}
 
     with st.form(key="downstream_entry_form"):
+        # Production Quantity Section
+        st.subheader("📊 Production Quantities")
+        
+        # Create columns for better layout
+        col1, col2 = st.columns(2)
+        
+        with col1:
+            entry["Target Qty (PCS)"] = st.number_input(
+                "Target Qty (PCS)", 
+                min_value=0, 
+                value=0, 
+                step=1,
+                key="target_qty"
+            )
+            
+            entry["Actual Qty (PCS)"] = st.number_input(
+                "Actual Qty (PCS)", 
+                min_value=0, 
+                value=0, 
+                step=1,
+                key="actual_qty"
+            )
+        
+        with col2:
+            entry["Reject Qty (PCS)"] = st.number_input(
+                "Reject Qty (PCS)", 
+                min_value=0, 
+                value=0, 
+                step=1,
+                key="reject_qty"
+            )
+            
+            entry["Approved Qty (PCS)"] = st.number_input(
+                "Approved Qty (PCS)", 
+                min_value=0, 
+                value=0, 
+                step=1,
+                key="approved_qty"
+            )
+        
+        # Calculate efficiency metrics (informational only)
+        if entry["Target Qty (PCS)"] > 0:
+            efficiency = (entry["Actual Qty (PCS)"] / entry["Target Qty (PCS)"]) * 100
+            st.info(f"📈 Production Efficiency: {efficiency:.1f}%")
+        
+        if entry["Actual Qty (PCS)"] > 0:
+            reject_rate = (entry["Reject Qty (PCS)"] / entry["Actual Qty (PCS)"]) * 100
+            st.info(f"📉 Rejection Rate: {reject_rate:.1f}%")
+
+        # Dynamic fields from config sheet
+        st.subheader("🔧 Additional Data")
+        
         # Get all column names from config (admin renamed columns)
         for column in df.columns:
-            if column:  # Skip empty column names
+            if column and column not in ["Target Qty (PCS)", "Actual Qty (PCS)", "Reject Qty (PCS)", "Approved Qty (PCS)"]:
                 # Get dropdown options for this column (non-empty values)
                 options = [str(x).strip() for x in df[column].dropna().unique() if str(x).strip() != ""]
                 if options:
@@ -173,8 +225,17 @@ def downstream_data_entry(logged_user):
                 else:
                     entry[column] = st.text_input(column, key=f"downstream_{column}")
 
-        submitted = st.form_submit_button("Save Locally")
-        sync_button = st.form_submit_button("💾 Sync Data")
+        # Form buttons
+        col1, col2, col3 = st.columns(3)
+        
+        with col1:
+            submitted = st.form_submit_button("💾 Save Locally")
+        
+        with col2:
+            sync_button = st.form_submit_button("☁️ Sync to Google Sheets")
+        
+        with col3:
+            clear_button = st.form_submit_button("🗑️ Clear Form")
 
     if submitted:
         save_locally(entry, "local_data")
@@ -183,7 +244,11 @@ def downstream_data_entry(logged_user):
         sync_local_data_to_sheet("local_data", DOWNSTREAM_HISTORY_SHEET)
         st.rerun()
     
-    if st.button("Logout"):
+    if clear_button:
+        st.rerun()
+    
+    # Logout button outside the form
+    if st.button("🚪 Logout"):
         st.session_state.logged_in = False
         st.session_state.logged_user = ""
         st.rerun()
@@ -213,11 +278,24 @@ if choice == "Home":
     if unsynced_count > 0:
         st.warning(f"⚠️ You have {unsynced_count} unsynced records!")
         
-        # Sync all button
+        # Show sync button
         if st.button("🔄 Sync All Data to Google Sheets", type="primary", use_container_width=True):
             sync_all_data()
     else:
         st.success("✅ All data is synced with Google Sheets!")
+        
+    # Quick stats if there's any data
+    if st.session_state.get("local_data"):
+        st.subheader("📈 Quick Statistics")
+        local_data = st.session_state.local_data
+        total_actual = sum(entry.get("Actual Qty (PCS)", 0) for entry in local_data)
+        total_reject = sum(entry.get("Reject Qty (PCS)", 0) for entry in local_data)
+        
+        col1, col2 = st.columns(2)
+        with col1:
+            st.metric("Total Actual Production", f"{total_actual} PCS")
+        with col2:
+            st.metric("Total Rejects", f"{total_reject} PCS")
 
 # DOWNSTREAM DATA ENTRY SECTION
 elif choice == "Downstream Data Entry":
