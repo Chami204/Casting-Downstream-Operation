@@ -199,95 +199,86 @@ def downstream_data_entry(logged_user):
                 if not selected_value:
                     all_required_filled = False
 
-        # Show Production Quantities only after required data is filled
-        if all_required_filled:
-            st.subheader("📊 Production Quantities")
-            
-            # Create columns for better layout
-            col1, col2 = st.columns(2)
-            
-            with col1:
-                entry["Target Qty (PCS)"] = st.number_input(
-                    "Target Qty (PCS) *", 
-                    min_value=0, 
-                    value=0, 
-                    step=1,
-                    key="target_qty"
-                )
-                
-                entry["Actual Qty (PCS)"] = st.number_input(
-                    "Actual Qty (PCS) *", 
-                    min_value=0, 
-                    value=0, 
-                    step=1,
-                    key="actual_qty"
-                )
-            
-            with col2:
-                entry["Reject Qty (PCS)"] = st.number_input(
-                    "Reject Qty (PCS)", 
-                    min_value=0, 
-                    value=0, 
-                    step=1,
-                    key="reject_qty",
-                    help="Can be zero or above"
-                )
-                
-                entry["Approved Qty (PCS)"] = st.number_input(
-                    "Approved Qty (PCS) *", 
-                    min_value=0, 
-                    value=0, 
-                    step=1,
-                    key="approved_qty"
-                )
-            
-            # Calculate efficiency metrics (informational only)
-            if entry["Target Qty (PCS)"] > 0:
-                efficiency = (entry["Actual Qty (PCS)"] / entry["Target Qty (PCS)"]) * 100
-                st.info(f"📈 Production Efficiency: {efficiency:.1f}%")
-            
-            if entry["Actual Qty (PCS)"] > 0:
-                reject_rate = (entry["Reject Qty (PCS)"] / entry["Actual Qty (PCS)"]) * 100
-                st.info(f"📉 Rejection Rate: {reject_rate:.1f}%")
-            
-            # Check if all production quantities are filled
-            production_filled = (
-                entry["Target Qty (PCS)"] is not None and
-                entry["Actual Qty (PCS)"] is not None and
-                entry["Approved Qty (PCS)"] is not None
+        # Production Quantities Section (also required)
+        st.subheader("📊 Production Quantities")
+        
+        # Create columns for better layout
+        col1, col2 = st.columns(2)
+        
+        with col1:
+            entry["Target Qty (PCS)"] = st.number_input(
+                "Target Qty (PCS) *", 
+                min_value=0, 
+                value=0, 
+                step=1,
+                key="target_qty"
             )
             
-            # Form buttons - only enable if all data is filled
-            col1, col2, col3 = st.columns(3)
+            entry["Actual Qty (PCS)"] = st.number_input(
+                "Actual Qty (PCS) *", 
+                min_value=0, 
+                value=0, 
+                step=1,
+                key="actual_qty"
+            )
+        
+        with col2:
+            entry["Reject Qty (PCS)"] = st.number_input(
+                "Reject Qty (PCS)", 
+                min_value=0, 
+                value=0, 
+                step=1,
+                key="reject_qty",
+                help="Can be zero or above"
+            )
             
-            with col1:
-                submitted = st.form_submit_button(
-                    "💾 Save Locally", 
-                    disabled=not (all_required_filled and production_filled)
-                )
-            
-            with col2:
-                sync_button = st.form_submit_button(
-                    "☁️ Sync to Google Sheets",
-                    disabled=not (all_required_filled and production_filled)
-                )
-            
-            with col3:
-                clear_button = st.form_submit_button("🗑️ Clear Form")
-        else:
-            st.warning("⚠️ Please fill all required data fields above to proceed to Production Quantities")
-            
-            # Disabled buttons when required data is not filled
-            col1, col2, col3 = st.columns(3)
-            
-            with col1:
-                submitted = st.form_submit_button("💾 Save Locally", disabled=True)
-            
-            with col2:
-                sync_button = st.form_submit_button("☁️ Sync to Google Sheets", disabled=True)
-            
-            with col3:
-                clear_button = st.form_submit_button("🗑️ Clear Form")
+            entry["Approved Qty (PCS)"] = st.number_input(
+                "Approved Qty (PCS) *", 
+                min_value=0, 
+                value=0, 
+                step=1,
+                key="approved_qty"
+            )
+        
+        # Calculate efficiency metrics (informational only)
+        if entry["Target Qty (PCS)"] > 0:
+            efficiency = (entry["Actual Qty (PCS)"] / entry["Target Qty (PCS)"]) * 100
+            st.info(f"📈 Production Efficiency: {efficiency:.1f}%")
+        
+        if entry["Actual Qty (PCS)"] > 0:
+            reject_rate = (entry["Reject Qty (PCS)"] / entry["Actual Qty (PCS)"]) * 100
+            st.info(f"📉 Rejection Rate: {reject_rate:.1f}%")
+        
+        # Check if all required production quantities are filled
+        production_filled = (
+            entry["Target Qty (PCS)"] is not None and
+            entry["Actual Qty (PCS)"] is not None and
+            entry["Approved Qty (PCS)"] is not None
+        )
+        
+        # Check if all data is complete
+        all_data_complete = all_required_filled and production_filled
+        
+        # Form buttons - only enable if all data is filled
+        col1, col2, col3 = st.columns(3)
+        
+        with col1:
+            submitted = st.form_submit_button(
+                "💾 Save Locally", 
+                disabled=not all_data_complete
+            )
+        
+        with col2:
+            sync_button = st.form_submit_button(
+                "☁️ Sync to Google Sheets",
+                disabled=not all_data_complete
+            )
+        
+        with col3:
+            clear_button = st.form_submit_button("🗑️ Clear Form")
+        
+        if not all_data_complete:
+            st.warning("⚠️ Please fill all required fields (marked with *) to save data")
 
     if submitted:
         save_locally(entry, "local_data")
@@ -344,12 +335,27 @@ if choice == "Home":
         local_data = st.session_state.local_data
         total_actual = sum(entry.get("Actual Qty (PCS)", 0) for entry in local_data)
         total_reject = sum(entry.get("Reject Qty (PCS)", 0) for entry in local_data)
+        total_target = sum(entry.get("Target Qty (PCS)", 0) for entry in local_data)
+        total_approved = sum(entry.get("Approved Qty (PCS)", 0) for entry in local_data)
         
-        col1, col2 = st.columns(2)
+        col1, col2, col3, col4 = st.columns(4)
         with col1:
-            st.metric("Total Actual Production", f"{total_actual} PCS")
+            st.metric("Total Target", f"{total_target} PCS")
         with col2:
+            st.metric("Total Actual", f"{total_actual} PCS")
+        with col3:
+            st.metric("Total Approved", f"{total_approved} PCS")
+        with col4:
             st.metric("Total Rejects", f"{total_reject} PCS")
+        
+        # Calculate overall efficiency
+        if total_target > 0:
+            overall_efficiency = (total_actual / total_target) * 100
+            st.info(f"🏭 Overall Production Efficiency: {overall_efficiency:.1f}%")
+        
+        if total_actual > 0:
+            overall_reject_rate = (total_reject / total_actual) * 100
+            st.info(f"🏭 Overall Rejection Rate: {overall_reject_rate:.1f}%")
 
 # DOWNSTREAM DATA ENTRY SECTION
 elif choice == "Downstream Data Entry":
