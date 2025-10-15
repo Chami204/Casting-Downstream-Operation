@@ -8,7 +8,7 @@ import pytz
 
 # ------------------ SETTINGS ------------------
 APP_TITLE = "Die Casting Production Downstream Data"
-SHEET_NAME = "Casting_downstream"
+SHEET_NAME = "Casting_downstream"  # Changed to match your spreadsheet name
 DOWNSTREAM_CONFIG_SHEET = "Downstream_config"
 DOWNSTREAM_HISTORY_SHEET = "Downstream_history"
 TIME_FORMAT_DATE = "%Y-%b-%d"  # 2025-AUG-01 format
@@ -63,7 +63,11 @@ def get_gs_client():
 def get_gsheet_data(sheet_name):
     client = get_gs_client()
     if client:
-        return client.open(sheet_name)
+        try:
+            return client.open(sheet_name)
+        except gspread.exceptions.SpreadsheetNotFound:
+            st.error(f"❌ Spreadsheet '{sheet_name}' not found. Please check the spreadsheet name and ensure it's shared with the service account.")
+            return None
     else:
         return None
 
@@ -163,79 +167,127 @@ def downstream_data_entry(logged_user):
     entry = {"User": logged_user, "Date": current_date, "Time": current_time}
 
     with st.form(key="downstream_entry_form"):
-        # Production Quantity Section
-        st.subheader("📊 Production Quantities")
+        # Required Data Section (from config sheet)
+        st.subheader("📋 Required Data")
         
-        # Create columns for better layout
-        col1, col2 = st.columns(2)
-        
-        with col1:
-            entry["Target Qty (PCS)"] = st.number_input(
-                "Target Qty (PCS)", 
-                min_value=0, 
-                value=0, 
-                step=1,
-                key="target_qty"
-            )
-            
-            entry["Actual Qty (PCS)"] = st.number_input(
-                "Actual Qty (PCS)", 
-                min_value=0, 
-                value=0, 
-                step=1,
-                key="actual_qty"
-            )
-        
-        with col2:
-            entry["Reject Qty (PCS)"] = st.number_input(
-                "Reject Qty (PCS)", 
-                min_value=0, 
-                value=0, 
-                step=1,
-                key="reject_qty"
-            )
-            
-            entry["Approved Qty (PCS)"] = st.number_input(
-                "Approved Qty (PCS)", 
-                min_value=0, 
-                value=0, 
-                step=1,
-                key="approved_qty"
-            )
-        
-        # Calculate efficiency metrics (informational only)
-        if entry["Target Qty (PCS)"] > 0:
-            efficiency = (entry["Actual Qty (PCS)"] / entry["Target Qty (PCS)"]) * 100
-            st.info(f"📈 Production Efficiency: {efficiency:.1f}%")
-        
-        if entry["Actual Qty (PCS)"] > 0:
-            reject_rate = (entry["Reject Qty (PCS)"] / entry["Actual Qty (PCS)"]) * 100
-            st.info(f"📉 Rejection Rate: {reject_rate:.1f}%")
-
-        # Dynamic fields from config sheet
-        st.subheader("🔧 Additional Data")
+        # Track if all required fields are filled
+        all_required_filled = True
         
         # Get all column names from config (admin renamed columns)
         for column in df.columns:
-            if column and column not in ["Target Qty (PCS)", "Actual Qty (PCS)", "Reject Qty (PCS)", "Approved Qty (PCS)"]:
+            if column:  # Skip empty column names
                 # Get dropdown options for this column (non-empty values)
                 options = [str(x).strip() for x in df[column].dropna().unique() if str(x).strip() != ""]
                 if options:
-                    entry[column] = st.selectbox(column, options, key=f"downstream_{column}")
+                    selected_value = st.selectbox(
+                        f"{column} *", 
+                        options, 
+                        key=f"downstream_{column}",
+                        index=None,
+                        placeholder=f"Select {column}"
+                    )
+                    entry[column] = selected_value
                 else:
-                    entry[column] = st.text_input(column, key=f"downstream_{column}")
+                    selected_value = st.text_input(
+                        f"{column} *", 
+                        key=f"downstream_{column}",
+                        placeholder=f"Enter {column}"
+                    )
+                    entry[column] = selected_value
+                
+                # Check if this required field is filled
+                if not selected_value:
+                    all_required_filled = False
 
-        # Form buttons
-        col1, col2, col3 = st.columns(3)
-        
-        with col1:
-            submitted = st.form_submit_button("💾 Save Locally")
-        
-        with col2:
-            sync_button = st.form_submit_button("☁️ Sync to Google Sheets")
-        
-        with col3:
-            clear_button = st.form_submit_button("🗑️ Clear Form")
+        # Show Production Quantities only after required data is filled
+        if all_required_filled:
+            st.subheader("📊 Production Quantities")
+            
+            # Create columns for better layout
+            col1, col2 = st.columns(2)
+            
+            with col1:
+                entry["Target Qty (PCS)"] = st.number_input(
+                    "Target Qty (PCS) *", 
+                    min_value=0, 
+                    value=0, 
+                    step=1,
+                    key="target_qty"
+                )
+                
+                entry["Actual Qty (PCS)"] = st.number_input(
+                    "Actual Qty (PCS) *", 
+                    min_value=0, 
+                    value=0, 
+                    step=1,
+                    key="actual_qty"
+                )
+            
+            with col2:
+                entry["Reject Qty (PCS)"] = st.number_input(
+                    "Reject Qty (PCS)", 
+                    min_value=0, 
+                    value=0, 
+                    step=1,
+                    key="reject_qty",
+                    help="Can be zero or above"
+                )
+                
+                entry["Approved Qty (PCS)"] = st.number_input(
+                    "Approved Qty (PCS) *", 
+                    min_value=0, 
+                    value=0, 
+                    step=1,
+                    key="approved_qty"
+                )
+            
+            # Calculate efficiency metrics (informational only)
+            if entry["Target Qty (PCS)"] > 0:
+                efficiency = (entry["Actual Qty (PCS)"] / entry["Target Qty (PCS)"]) * 100
+                st.info(f"📈 Production Efficiency: {efficiency:.1f}%")
+            
+            if entry["Actual Qty (PCS)"] > 0:
+                reject_rate = (entry["Reject Qty (PCS)"] / entry["Actual Qty (PCS)"]) * 100
+                st.info(f"📉 Rejection Rate: {reject_rate:.1f}%")
+            
+            # Check if all production quantities are filled
+            production_filled = (
+                entry["Target Qty (PCS)"] is not None and
+                entry["Actual Qty (PCS)"] is not None and
+                entry["Approved Qty (PCS)"] is not None
+            )
+            
+            # Form buttons - only enable if all data is filled
+            col1, col2, col3 = st.columns(3)
+            
+            with col1:
+                submitted = st.form_submit_button(
+                    "💾 Save Locally", 
+                    disabled=not (all_required_filled and production_filled)
+                )
+            
+            with col2:
+                sync_button = st.form_submit_button(
+                    "☁️ Sync to Google Sheets",
+                    disabled=not (all_required_filled and production_filled)
+                )
+            
+            with col3:
+                clear_button = st.form_submit_button("🗑️ Clear Form")
+        else:
+            st.warning("⚠️ Please fill all required data fields above to proceed to Production Quantities")
+            
+            # Disabled buttons when required data is not filled
+            col1, col2, col3 = st.columns(3)
+            
+            with col1:
+                submitted = st.form_submit_button("💾 Save Locally", disabled=True)
+            
+            with col2:
+                sync_button = st.form_submit_button("☁️ Sync to Google Sheets", disabled=True)
+            
+            with col3:
+                clear_button = st.form_submit_button("🗑️ Clear Form")
 
     if submitted:
         save_locally(entry, "local_data")
@@ -258,6 +310,8 @@ sheet = get_gsheet_data(SHEET_NAME)
 if sheet:
     if "downstream_config_df" not in st.session_state:
         st.session_state.downstream_config_df = read_sheet(sheet, DOWNSTREAM_CONFIG_SHEET)
+else:
+    st.error("❌ Unable to connect to Google Sheets. Please check your configuration.")
 
 # ------------------ MAIN APP LOGIC ------------------
 menu = ["Home", "Downstream Data Entry"]
