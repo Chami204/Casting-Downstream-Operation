@@ -170,8 +170,8 @@ def downstream_data_entry(logged_user):
         # Required Data Section (from config sheet)
         st.subheader("📋 Required Data")
         
-        # Track if all required fields are filled
-        all_required_filled = True
+        # Track missing required fields
+        missing_fields = []
         
         # Get all column names from config (admin renamed columns)
         for column in df.columns:
@@ -195,9 +195,9 @@ def downstream_data_entry(logged_user):
                     )
                     entry[column] = selected_value
                 
-                # Check if this required field is filled
+                # Track if this required field is missing
                 if not selected_value:
-                    all_required_filled = False
+                    missing_fields.append(column)
 
         # Production Quantities Section (also required)
         st.subheader("📊 Production Quantities")
@@ -253,42 +253,32 @@ def downstream_data_entry(logged_user):
             reject_rate = (reject_qty / actual_qty) * 100
             st.info(f"📉 Rejection Rate: {reject_rate:.1f}%")
         
-        # Check if all required production quantities are filled
-        # Since number inputs always have a value (default 0), we don't need to check for None
-        production_filled = True  # Number inputs are always filled with at least 0
-        
-        # Check if all data is complete
-        all_data_complete = all_required_filled and production_filled
-        
-        # Form buttons - only enable if all data is filled
+        # Form buttons - always enabled
         col1, col2, col3 = st.columns(3)
         
         with col1:
-            submitted = st.form_submit_button(
-                "💾 Save Locally", 
-                disabled=not all_data_complete
-            )
+            submitted = st.form_submit_button("💾 Save Locally")
         
         with col2:
-            sync_button = st.form_submit_button(
-                "☁️ Sync to Google Sheets",
-                disabled=not all_data_complete
-            )
+            sync_button = st.form_submit_button("☁️ Sync to Google Sheets")
         
         with col3:
             clear_button = st.form_submit_button("🗑️ Clear Form")
-        
-        if not all_data_complete:
-            st.warning("⚠️ Please fill all required fields (marked with *) to save data")
-        else:
-            st.success("✅ All required fields are filled! You can now save the data.")
 
+    # Handle form submissions
     if submitted:
-        save_locally(entry, "local_data")
+        # Check for missing fields and show specific warnings
+        if missing_fields:
+            st.error(f"❌ The following required fields are missing: {', '.join(missing_fields)}")
+        else:
+            save_locally(entry, "local_data")
     
     if sync_button:
-        sync_local_data_to_sheet("local_data", DOWNSTREAM_HISTORY_SHEET)
-        st.rerun()
+        if missing_fields:
+            st.error(f"❌ Cannot sync data. The following required fields are missing: {', '.join(missing_fields)}")
+        else:
+            sync_local_data_to_sheet("local_data", DOWNSTREAM_HISTORY_SHEET)
+            st.rerun()
     
     if clear_button:
         st.rerun()
