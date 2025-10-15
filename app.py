@@ -206,24 +206,26 @@ def downstream_data_entry(logged_user):
         col1, col2 = st.columns(2)
         
         with col1:
-            entry["Target Qty (PCS)"] = st.number_input(
+            target_qty = st.number_input(
                 "Target Qty (PCS) *", 
                 min_value=0, 
                 value=0, 
                 step=1,
                 key="target_qty"
             )
+            entry["Target Qty (PCS)"] = target_qty
             
-            entry["Actual Qty (PCS)"] = st.number_input(
+            actual_qty = st.number_input(
                 "Actual Qty (PCS) *", 
                 min_value=0, 
                 value=0, 
                 step=1,
                 key="actual_qty"
             )
+            entry["Actual Qty (PCS)"] = actual_qty
         
         with col2:
-            entry["Reject Qty (PCS)"] = st.number_input(
+            reject_qty = st.number_input(
                 "Reject Qty (PCS)", 
                 min_value=0, 
                 value=0, 
@@ -231,30 +233,29 @@ def downstream_data_entry(logged_user):
                 key="reject_qty",
                 help="Can be zero or above"
             )
+            entry["Reject Qty (PCS)"] = reject_qty
             
-            entry["Approved Qty (PCS)"] = st.number_input(
+            approved_qty = st.number_input(
                 "Approved Qty (PCS) *", 
                 min_value=0, 
                 value=0, 
                 step=1,
                 key="approved_qty"
             )
+            entry["Approved Qty (PCS)"] = approved_qty
         
         # Calculate efficiency metrics (informational only)
-        if entry["Target Qty (PCS)"] > 0:
-            efficiency = (entry["Actual Qty (PCS)"] / entry["Target Qty (PCS)"]) * 100
+        if target_qty > 0:
+            efficiency = (actual_qty / target_qty) * 100
             st.info(f"📈 Production Efficiency: {efficiency:.1f}%")
         
-        if entry["Actual Qty (PCS)"] > 0:
-            reject_rate = (entry["Reject Qty (PCS)"] / entry["Actual Qty (PCS)"]) * 100
+        if actual_qty > 0:
+            reject_rate = (reject_qty / actual_qty) * 100
             st.info(f"📉 Rejection Rate: {reject_rate:.1f}%")
         
         # Check if all required production quantities are filled
-        production_filled = (
-            entry["Target Qty (PCS)"] is not None and
-            entry["Actual Qty (PCS)"] is not None and
-            entry["Approved Qty (PCS)"] is not None
-        )
+        # Since number inputs always have a value (default 0), we don't need to check for None
+        production_filled = True  # Number inputs are always filled with at least 0
         
         # Check if all data is complete
         all_data_complete = all_required_filled and production_filled
@@ -279,6 +280,8 @@ def downstream_data_entry(logged_user):
         
         if not all_data_complete:
             st.warning("⚠️ Please fill all required fields (marked with *) to save data")
+        else:
+            st.success("✅ All required fields are filled! You can now save the data.")
 
     if submitted:
         save_locally(entry, "local_data")
