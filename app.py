@@ -8,7 +8,7 @@ import pytz
 
 # ------------------ SETTINGS ------------------
 APP_TITLE = "Die Casting Production Downstream Data"
-SHEET_NAME = "FlowApp_Data"
+SHEET_NAME = "Casting_downstream"
 DOWNSTREAM_CONFIG_SHEET = "Downstream_config"
 DOWNSTREAM_HISTORY_SHEET = "Downstream_history"
 TIME_FORMAT_DATE = "%Y-%b-%d"  # 2025-AUG-01 format
