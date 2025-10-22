@@ -104,38 +104,54 @@ def sync_local_data_to_sheet(local_key, history_sheet_name):
         return
 
     # Get existing headers
-    existing_cols = ws.row_values(1) if ws.row_values(1) else []
+    existing_headers = ws.row_values(1) if ws.row_values(1) else []
     
-    # Ensure User, Date, Time are first
-    mandatory_cols = ["User", "Date", "Time"]
-    other_existing_cols = [col for col in existing_cols if col not in mandatory_cols]
+    # If no headers exist, create them from the first local data entry
+    if not existing_headers:
+        first_entry = st.session_state[local_key][0]
+        headers = list(first_entry.keys())
+        ws.update('1:1', [headers])
+        existing_headers = headers
     
-    # Collect new columns from local data
-    new_cols = set()
-    for entry in st.session_state[local_key]:
-        for k in entry.keys():
-            if k not in mandatory_cols and k not in other_existing_cols:
-                new_cols.add(k)
-    new_cols = list(new_cols)
-    
-    # Final column order
-    final_cols = mandatory_cols + other_existing_cols + new_cols
-    
-    # Update header row only if columns changed
-    if final_cols != existing_cols:
-        ws.update('1:1', [final_cols])
-    
-    # Prepare rows to append
+    # Prepare rows to append - map data to correct columns by header name
     rows_to_append = []
     for entry in st.session_state[local_key]:
-        row = [entry.get(col, "") for col in final_cols]
+        row = []
+        for header in existing_headers:
+            # Map each header to the corresponding data in the entry
+            # Use empty string if the header doesn't exist in the entry
+            row.append(entry.get(header, ""))
         rows_to_append.append(row)
-
-    ws.append_rows(rows_to_append, value_input_option="USER_ENTERED")
     
-    # Clear local storage
-    st.session_state[local_key] = []
-    st.success(f"✅ {len(rows_to_append)} records synced to {history_sheet_name}!")
+    # Check for new columns in local data that don't exist in sheet
+    all_local_headers = set()
+    for entry in st.session_state[local_key]:
+        all_local_headers.update(entry.keys())
+    
+    new_headers = all_local_headers - set(existing_headers)
+    
+    if new_headers:
+        # Add new columns to the sheet
+        updated_headers = existing_headers + list(new_headers)
+        ws.update('1:1', [updated_headers])
+        
+        # Re-prepare rows with new column structure
+        rows_to_append = []
+        for entry in st.session_state[local_key]:
+            row = []
+            for header in updated_headers:
+                row.append(entry.get(header, ""))
+            rows_to_append.append(row)
+    
+    # Append all rows
+    if rows_to_append:
+        ws.append_rows(rows_to_append, value_input_option="USER_ENTERED")
+        
+        # Clear local storage
+        st.session_state[local_key] = []
+        st.success(f"✅ {len(rows_to_append)} records synced to {history_sheet_name}!")
+    else:
+        st.error("No data to append!")
 
 # ------------------ UNSYNCED DATA COUNT FUNCTION ------------------
 def get_unsynced_counts():
