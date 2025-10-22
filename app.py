@@ -243,7 +243,29 @@ def downstream_data_entry(logged_user):
                 key="approved_qty"
             )
             entry["Approved Qty (PCS)"] = approved_qty
+
+
         
+        # ADD THE NEW FIELDS HERE - Reject Reason and Other Comments
+        st.subheader("📝 Additional Information")
+        
+        # Reject Reason - text area for user to type anything
+        reject_reason = st.text_area(
+            "Reject Reason",
+            placeholder="Enter the reason for rejects (if any)...",
+            key="reject_reason",
+            help="Optional: Describe why items were rejected"
+        )
+        entry["Reject Reason"] = reject_reason
+        
+        # Other Comments - text area for user to type anything
+        other_comments = st.text_area(
+            "Other Comments", 
+            placeholder="Enter any additional comments or observations...",
+            key="other_comments",
+            help="Optional: Any other relevant information"
+        )
+        entry["Other Comments"] = other_comments 
     
         
         # Form buttons - always enabled
