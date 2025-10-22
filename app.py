@@ -243,9 +243,16 @@ def downstream_data_entry(logged_user):
                 key="approved_qty"
             )
             entry["Approved Qty (PCS)"] = approved_qty
-
-
         
+        # Calculate efficiency metrics (informational only)
+        if target_qty > 0:
+            efficiency = (actual_qty / target_qty) * 100
+            st.info(f"📈 Production Efficiency: {efficiency:.1f}%")
+        
+        if actual_qty > 0:
+            reject_rate = (reject_qty / actual_qty) * 100
+            st.info(f"📉 Rejection Rate: {reject_rate:.1f}%")
+
         # ADD THE NEW FIELDS HERE - Reject Reason and Other Comments
         st.subheader("📝 Additional Information")
         
@@ -265,8 +272,7 @@ def downstream_data_entry(logged_user):
             key="other_comments",
             help="Optional: Any other relevant information"
         )
-        entry["Other Comments"] = other_comments 
-    
+        entry["Other Comments"] = other_comments
         
         # Form buttons - always enabled
         col1, col2, col3 = st.columns(3)
